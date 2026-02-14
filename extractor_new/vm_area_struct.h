@@ -1,5 +1,6 @@
 #include "entry.h"
 #include "pde3.h"
+#include "pde4.h"
 enum page_map_type
 {
     VID_MEM = 0,
@@ -15,6 +16,7 @@ struct vm_area_struct
 struct vm_area_struct_head
 {
     PDE3 *PDE3_entity;
+    PDE4 *PDE4_entity;
     struct vm_area_struct *head;
     struct vm_area_struct *tail;
     std::map<uint64_t, struct vm_area_struct *> vm_area_map;
@@ -100,13 +102,8 @@ void merge_area(struct vm_area_struct_head *head)
     }
 }
 
-vm_area_struct_head *visualize_virtual_address_space(PDE3 *top_pde3)
+static void collect_virtual_address_space(PDE3 *top_pde3, struct vm_area_struct_head *head)
 {
-    struct vm_area_struct_head *head = new struct vm_area_struct_head;
-    head->PDE3_entity = top_pde3;
-    head->head = NULL;
-    head->tail = NULL;
-
     for (auto itpde2 = top_pde3->PDE2s.begin(); itpde2 != top_pde3->PDE2s.end(); itpde2++)
     {
         PDE2 *pde2 = itpde2->second;
@@ -143,6 +140,32 @@ vm_area_struct_head *visualize_virtual_address_space(PDE3 *top_pde3)
             }
         }
     }
+}
+
+vm_area_struct_head *visualize_virtual_address_space(PDE3 *top_pde3)
+{
+    struct vm_area_struct_head *head = new struct vm_area_struct_head;
+    head->PDE3_entity = top_pde3;
+    head->PDE4_entity = NULL;
+    head->head = NULL;
+    head->tail = NULL;
+
+    collect_virtual_address_space(top_pde3, head);
+    merge_area(head);
+    return head;
+}
+
+vm_area_struct_head *visualize_virtual_address_space(PDE4 *top_pde4)
+{
+    struct vm_area_struct_head *head = new struct vm_area_struct_head;
+    head->PDE3_entity = NULL;
+    head->PDE4_entity = top_pde4;
+    head->head = NULL;
+    head->tail = NULL;
+
+    for (auto it = top_pde4->PDE3s.begin(); it != top_pde4->PDE3s.end(); it++)
+        collect_virtual_address_space(it->second, head);
+
     merge_area(head);
     return head;
 }

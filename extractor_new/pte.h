@@ -8,27 +8,35 @@ class PTE
 {
 public:
     uint64_t phy_addr;
+    uint64_t dump_size = 0;
     void *base_addr;
     void *entry_addr;
     ENTRY self_entry;
     std::map<int, ENTRY *> pte_entry;
     PDEType type;
+    MmuFormat format = MmuFormat::VER2;
 
     uint64_t pte_page_size = 4096;
     uint64_t pte_entry_size = 8;
 
 public:
-    PTE(uint64_t phy_addr, void *base_addr, PDEType type, ENTRY self_entry)
-        : phy_addr(phy_addr), base_addr(base_addr), self_entry(self_entry)
+    PTE(uint64_t phy_addr,
+        void *base_addr,
+        PDEType type,
+        ENTRY self_entry,
+        MmuFormat format = MmuFormat::VER2,
+        uint64_t dump_size = 0)
+        : phy_addr(phy_addr), dump_size(dump_size), base_addr(base_addr), self_entry(self_entry), format(format)
     {
         this->type = type;
         this->entry_addr = (uint8_t *)this->base_addr + this->phy_addr;
     }
 
     PTE(uint64_t phy_addr, void *base_addr, PDEType type, ENTRY self_entry,
-        uint64_t pte_page_size, uint64_t pte_entry_size)
-        : phy_addr(phy_addr), base_addr(base_addr), self_entry(self_entry),
-          pte_page_size(pte_page_size), pte_entry_size(pte_entry_size)
+        uint64_t pte_page_size, uint64_t pte_entry_size,
+        MmuFormat format = MmuFormat::VER2, uint64_t dump_size = 0)
+        : phy_addr(phy_addr), dump_size(dump_size), base_addr(base_addr), self_entry(self_entry),
+          format(format), pte_page_size(pte_page_size), pte_entry_size(pte_entry_size)
     {
         this->type = type;
         this->entry_addr = (uint8_t *)this->base_addr + this->phy_addr;
@@ -96,16 +104,29 @@ public:
 
     bool construct_PTE_entry()
     {
+        auto in_dump_range = [&](uint64_t addr, uint64_t size) {
+            if (this->dump_size == 0)
+                return true;
+
+            if (addr > this->dump_size)
+                return false;
+
+            return size <= (this->dump_size - addr);
+        };
+
+        if (!in_dump_range(this->phy_addr, this->pte_page_size))
+            return false;
+
         uint64_t entry_nums = this->pte_page_size / this->pte_entry_size;
         for (int i = 0; (uint64_t)i < entry_nums; i++)
         {
             uint8_t *entry_Ptr = (uint8_t *)this->entry_addr + i * this->pte_entry_size;
 
-            std::uint8_t V = entry_Ptr[0] & 0x1;
-            std::uint8_t A = (entry_Ptr[0] >> 1) & 0x3;
+            std::uint64_t entry_bits = mmu_read_u64_le(entry_Ptr);
+            std::uint8_t V = mmu_entry_valid(entry_bits);
+            std::uint8_t A = mmu_entry_aperture(entry_bits);
             std::uint8_t flags = entry_Ptr[0] & 0xff;
-            std::uint64_t addr = 0;
-            std::uint64_t entry_bits = 0;
+            std::uint64_t addr = mmu_decode_pte_address(entry_bits, this->format);
             pagetype entry_type;
             if (this->type == PAGE512M)
                 entry_type = PAGE_512M;
@@ -115,26 +136,12 @@ public:
                 entry_type = PAGE_64K;
             else if (this->type == PAGE4K)
                 entry_type = PAGE_4K;
-            //   if (V != 0x1)
-            //     return false;
 
-            for (int j = 7; j >= 0; --j)
-            {
-                addr |= entry_Ptr[j];
-                if (j != 0)
-                {
-                    addr = addr << 8;
-                }
-            }
-            entry_bits = addr;
-            addr &= 0x00FFFFFFFFFFFFFF;
-            addr >>= 8;
-            addr <<= 12;
             if (addr == 0x0 && V == 0x0)
                 continue;
 
             ENTRY *entry = new ENTRY(addr, flags, V, A, i, entry_bits, entry_type);
-            if (V == 0x01 && A < 0x04)
+            if (V == 0x01 && A <= 0x03)
                 this->pte_entry[i] = entry;
             else
                 return false;

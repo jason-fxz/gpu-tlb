@@ -24,7 +24,7 @@ entry.o: entry.cpp entry.h
 pde.o: pde.cpp pde.h entry.h
 	$(CXX) $(CXXFLAGS) -c pde.cpp
 
-extractor.o: extractor.cpp pde3.h pde2.h pde1.h pde0.h pde.h pte.h entry.h vm_area_struct.h
+extractor.o: extractor.cpp pde4.h pde3.h pde2.h pde1.h pde0.h pde.h pte.h entry.h vm_area_struct.h mmu_decode.h
 	$(CXX) $(CXXFLAGS) -c extractor.cpp
 
 # 清理生成的文件

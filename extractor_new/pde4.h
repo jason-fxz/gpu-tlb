@@ -1,32 +1,32 @@
-#ifndef _PDE3_H_
-#define _PDE3_H_
+#ifndef _PDE4_H_
+#define _PDE4_H_
 
 #include "pde.h"
-#include "pde2.h"
+#include "pde3.h"
 
-class PDE3
+class PDE4
 {
 public:
     uint64_t phy_addr;
     uint64_t dump_size = 0;
     void *base_addr;
     void *entry_addr;
-    PDEType type = PD3;
-
+    PDEType type = PD4;
     ENTRY self_entry;
-    MmuFormat format = MmuFormat::VER2;
-    uint32_t max_entries = 4;
+    MmuFormat format = MmuFormat::VER3;
+    uint32_t max_entries = 2;
+
     std::map<int, ENTRY *> pde_entry;
-    std::map<int, PDE2 *> PDE2s;
+    std::map<int, PDE3 *> PDE3s;
 
 public:
-    PDE3(uint64_t phy_addr,
+    PDE4(uint64_t phy_addr,
          void *base_addr,
          PDEType type,
          ENTRY self_entry,
-         MmuFormat format = MmuFormat::VER2,
+         MmuFormat format = MmuFormat::VER3,
          uint64_t dump_size = 0,
-         uint32_t max_entries = 4)
+         uint32_t max_entries = 2)
         : phy_addr(phy_addr),
           dump_size(dump_size),
           base_addr(base_addr),
@@ -38,16 +38,16 @@ public:
         this->type = type;
     }
 
-    ~PDE3()
+    ~PDE4()
     {
         for (auto it = this->pde_entry.begin(); it != this->pde_entry.end(); it++)
             delete it->second;
 
-        for (auto it = this->PDE2s.begin(); it != this->PDE2s.end(); it++)
+        for (auto it = this->PDE3s.begin(); it != this->PDE3s.end(); it++)
             delete it->second;
 
         this->pde_entry.clear();
-        this->PDE2s.clear();
+        this->PDE3s.clear();
     }
 
     void print(uint64_t addr)
@@ -55,11 +55,14 @@ public:
         for (int i = 0; i < this->type; i++)
             std::cout << "\t";
 
-        std::cout << "PDE3: 0x" << std::hex << this->phy_addr << "  type:" << this->type
-                  << std::endl;
+        std::cout << "PDE4: 0x" << std::hex << this->phy_addr << "  type:" << this->type
+                  << "  entry:" << this->self_entry.entry_bits << std::endl;
 
         for (auto it = this->pde_entry.begin(); it != this->pde_entry.end(); it++)
         {
+            for (int i = 0; i < this->type; i++)
+                std::cout << "\t";
+
             std::cout << "\t" << std::dec << it->first << " "
                       << "A: " << (uint64_t)it->second->A
                       << " V: " << (uint64_t)it->second->V << " "
@@ -67,7 +70,7 @@ public:
                       << "next_phy_addr: 0x" << std::hex << it->second->addr
                       << std::endl;
 
-            PDE2s[it->first]->print(addr | ((uint64_t)it->first << 47));
+            PDE3s[it->first]->print(addr | ((uint64_t)it->first << 56));
         }
 
         std::cout << std::endl;
@@ -75,20 +78,18 @@ public:
 
     bool construct()
     {
-        bool ok;
-
-        ok = construct_PDE3_entry();
+        bool ok = construct_PDE4_entry();
         if (!ok)
             return false;
 
-        ok = construct_PDE2();
+        ok = construct_PDE3();
         if (!ok)
             return false;
 
         return true;
     }
 
-    bool construct_PDE3_entry()
+    bool construct_PDE4_entry()
     {
         auto in_dump_range = [&](uint64_t addr, uint64_t size) {
             if (this->dump_size == 0)
@@ -100,6 +101,9 @@ public:
             return size <= (this->dump_size - addr);
         };
 
+        if (this->format != MmuFormat::VER3)
+            return false;
+
         if (!in_dump_range(this->phy_addr, 4096))
             return false;
 
@@ -108,19 +112,19 @@ public:
 
         for (uint32_t i = this->max_entries; i < 512; i++)
         {
-            uint8_t *entry_Ptr = (uint8_t *)this->entry_addr + i * 8;
-            if (mmu_read_u64_le(entry_Ptr) != 0)
+            uint8_t *entry_ptr = (uint8_t *)this->entry_addr + i * 8;
+            if (mmu_read_u64_le(entry_ptr) != 0)
                 return false;
         }
 
         for (uint32_t i = 0; i < this->max_entries; i++)
         {
-            uint8_t *entry_Ptr = (uint8_t *)this->entry_addr + i * 8;
+            uint8_t *entry_ptr = (uint8_t *)this->entry_addr + i * 8;
 
-            std::uint64_t entry_bits = mmu_read_u64_le(entry_Ptr);
+            std::uint64_t entry_bits = mmu_read_u64_le(entry_ptr);
             std::uint8_t V = mmu_entry_valid(entry_bits);
             std::uint8_t A = mmu_entry_aperture(entry_bits);
-            std::uint8_t flags = entry_Ptr[0] & 0xff;
+            std::uint8_t flags = entry_ptr[0] & 0xff;
             std::uint64_t addr = mmu_decode_single_pde_address(entry_bits, this->format);
 
             if (V == 0x00 && A == 0x00 && addr == 0x0)
@@ -132,7 +136,7 @@ public:
             if (A == 0)
                 return false;
 
-            if (addr == 0x0)
+            if (addr == 0)
                 continue;
 
             ENTRY *entry = new ENTRY(addr, flags, V, A, i, entry_bits);
@@ -145,7 +149,7 @@ public:
         return false;
     }
 
-    bool construct_PDE2()
+    bool construct_PDE3()
     {
         auto in_dump_range = [&](uint64_t addr, uint64_t size) {
             if (this->dump_size == 0)
@@ -165,14 +169,20 @@ public:
             if (!in_dump_range(it->second->addr, 4096))
                 return false;
 
-            PDE2 *pde2Ptr = new PDE2(it->second->addr, this->base_addr, PD2, *(it->second), this->format, this->dump_size);
-            bool ok = pde2Ptr->construct();
+            PDE3 *pde3_ptr = new PDE3(it->second->addr,
+                                      this->base_addr,
+                                      PD3,
+                                      *(it->second),
+                                      this->format,
+                                      this->dump_size,
+                                      512);
+            bool ok = pde3_ptr->construct();
             if (!ok) {
-                delete pde2Ptr;
+                delete pde3_ptr;
                 it = this->pde_entry.erase(it);
             }
             else {
-                PDE2s[it->first] = pde2Ptr;
+                this->PDE3s[it->first] = pde3_ptr;
                 it++;
             }
         }

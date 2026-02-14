@@ -7,8 +7,9 @@
 #include <bitset>
 #include <vector>
 #include "entry.h"
+#include "mmu_decode.h"
 
-enum PDEType { PD3, PD2, PD1, PD0, PTE0, PAGE512M, PAGE2M, PAGE64K, PAGE4K};
+enum PDEType { PD4, PD3, PD2, PD1, PD0, PTE0, PAGE512M, PAGE2M, PAGE64K, PAGE4K};
 class PDE {
 protected:
   uint64_t phy_addr;
