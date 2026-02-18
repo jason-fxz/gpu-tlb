@@ -5,11 +5,28 @@
 #include <iostream>
 #include <map>
 #include <bitset>
+#include <iomanip>
 #include <vector>
 #include "entry.h"
 #include "mmu_decode.h"
 
 enum PDEType { PD4, PD3, PD2, PD1, PD0, PTE0, PAGE512M, PAGE2M, PAGE64K, PAGE4K};
+
+static inline const char *mmu_aperture_name(std::uint8_t aperture)
+{
+  switch (aperture & 0x3)
+  {
+  case 0:
+    return "VL";
+  case 1:
+    return "VP";
+  case 2:
+    return "SC";
+  default:
+    return "SN";
+  }
+}
+
 class PDE {
 protected:
   uint64_t phy_addr;

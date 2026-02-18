@@ -50,28 +50,13 @@ public:
 
     void print(uint64_t addr)
     {
-        for (int i = 0; i < this->type; i++)
-            std::cout << "\t";
-
-        std::cout << "PDE2: 0x" << std::hex << this->phy_addr << "  type:" << this->type
-                  << "  entry:" << this->self_entry.entry_bits << std::endl;
+        uint64_t pd3_index_mask = this->format == MmuFormat::VER2 ? 0x3 : 0x1FF;
+        std::cout << "\t" << std::dec << std::setw(3) << std::setfill(' ')
+                  << ((addr >> 47) & pd3_index_mask) << "-->PD2@0x" << std::hex
+                  << std::setw(10) << std::setfill('0') << this->phy_addr << std::endl;
 
         for (auto it = this->pde_entry.begin(); it != this->pde_entry.end(); it++)
-        {
-            for (int i = 0; i < this->type; i++)
-                std::cout << "\t";
-
-            std::cout << "\t" << std::dec << it->first << " "
-                      << "A: " << (uint64_t)it->second->A
-                      << " V: " << (uint64_t)it->second->V << " "
-                      << "flags: 0b" << std::bitset<8>(it->second->flags) << " "
-                      << "next_phy_addr: 0x" << std::hex << it->second->addr
-                      << std::endl;
-
             PDE1s[it->first]->print(addr | ((uint64_t)it->first << 38));
-        }
-
-        std::cout << std::endl;
     }
 
     bool construct()

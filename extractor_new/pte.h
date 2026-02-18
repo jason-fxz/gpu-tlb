@@ -52,44 +52,46 @@ public:
 
     void print(uint64_t addr)
     {
-        std::string entry_type;
+        std::string page_name;
+        int shift = 12;
+        uint64_t mask = 0x1FF;
         if (this->type == PAGE64K)
         {
-            entry_type = "PAGE_64K";
+            page_name = "64KB-Page";
+            shift = 16;
+            mask = 0x01F;
         }
         else if (this->type == PAGE4K)
         {
-            entry_type = "PAGE_4K";
+            page_name = "4KB-Page";
+            shift = 12;
+            mask = 0x1FF;
+        }
+        else
+        {
+            page_name = "4KB-Page";
         }
 
-        for (int i = 0; i < this->type - 3; i++)
-            std::cout << "\t";
-        std::cout << "PTE: 0x" << this->phy_addr;
-        std::cout << "  type:" << entry_type;
-        std::cout << "  entry: 0x" << std::hex << this->self_entry.entry_bits
-                  << std::endl;
+        std::cout << "\t\t\t\t" << std::dec << std::setw(3) << std::setfill(' ')
+                  << ((addr >> 21) & 0x0FF) << "-->PT@0x" << std::hex << std::setw(10)
+                  << std::setfill('0') << this->phy_addr << std::endl;
+
         for (auto it = this->pte_entry.begin(); it != this->pte_entry.end(); it++)
         {
-            for (int i = 0; i < this->type; i++)
-                std::cout << "\t";
-            std::cout << "\t";
-            std::cout << std::dec << it->first << " "
-                      << "A: " << (uint64_t)it->second->A;
-            std::cout << " V: " << (uint64_t)it->second->V << " ";
-            std::cout << "flags: 0b" << std::bitset<8>(it->second->flags) << " ";
-            std::cout << "Page_addr: 0x" << std::hex << it->second->addr << " ";
-            std::cout << "Page_size: " << entry_type << " ";
-            std::cout << "entry: 0x" << std::hex << it->second->entry_bits << " ";
-            uint64_t addr_tmp = addr;
-            if (entry_type == "PAGE_64K")
-                addr_tmp = addr | ((uint64_t)it->first << 16);
-            else if (entry_type == "PAGE_4K")
-                addr_tmp = addr | ((uint64_t)it->first << 12);
-            std::cout << "virt_addr: 0x" << std::hex << addr_tmp;
-            std::cout << " " << std::endl;
+            uint64_t addr_tmp = addr | ((uint64_t)it->first << shift);
+            uint8_t flags = it->second->flags;
+            std::cout << "\t\t\t\t\t" << std::dec << std::setw(3) << std::setfill(' ')
+                      << (it->first & mask) << "-->" << page_name << "@0x" << std::hex
+                      << std::setw(10) << std::setfill('0') << it->second->addr
+                      << "\tVA: 0x" << std::setw(10) << addr_tmp
+                      << "\t|V:" << (flags & 0x1)
+                      << "|AP:" << mmu_aperture_name((flags >> 1) & 0x3)
+                      << "|VOL:" << ((flags >> 3) & 0x1) << "|E:" << ((flags >> 4) & 0x1)
+                      << "|P:" << ((flags >> 5) & 0x1) << "|RO:" << ((flags >> 6) & 0x1)
+                      << "|AD:" << ((flags >> 7) & 0x1) << "|" << std::endl;
+
             it->second->virt_addr = addr_tmp;
         }
-        std::cout << std::endl;
     }
 
     bool construct()

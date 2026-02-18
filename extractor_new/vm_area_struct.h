@@ -175,6 +175,8 @@ void print_area(struct vm_area_struct_head *head)
     for (auto it = head->vm_area_map.begin(); it != head->vm_area_map.end(); it++)
     {
         vm_area_struct *vm_area = it->second;
-        std::cout << "start_addr: 0x" << std::hex << vm_area->start_addr << "-----" << vm_area->start_addr + vm_area->size << " size: 0x" << vm_area->size << " type: " << (vm_area->type == VID_MEM ? "VID_MEM" : "SYS_MEM") << std::endl;
+        std::cout << "0x" << std::setw(10) << std::setfill('0') << std::hex << vm_area->start_addr << "-----0x" 
+        << std::setw(10) << std::setfill('0') << vm_area->start_addr + vm_area->size
+        << " size: 0x" << vm_area->size << " type: " << (vm_area->type == VID_MEM ? "VID_MEM" : "SYS_MEM") << std::endl;
     }
 }

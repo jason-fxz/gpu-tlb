@@ -52,25 +52,20 @@ public:
 
     void print(uint64_t addr)
     {
-        for (int i = 0; i < this->type; i++)
-            std::cout << "\t";
-
-        std::cout << "PDE3: 0x" << std::hex << this->phy_addr << "  type:" << this->type
-                  << std::endl;
-
-        for (auto it = this->pde_entry.begin(); it != this->pde_entry.end(); it++)
+        if (this->self_entry.entry_bits == 0)
         {
-            std::cout << "\t" << std::dec << it->first << " "
-                      << "A: " << (uint64_t)it->second->A
-                      << " V: " << (uint64_t)it->second->V << " "
-                      << "flags: 0b" << std::bitset<8>(it->second->flags) << " "
-                      << "next_phy_addr: 0x" << std::hex << it->second->addr
-                      << std::endl;
-
-            PDE2s[it->first]->print(addr | ((uint64_t)it->first << 47));
+            std::cout << "PD3@0x" << std::hex << std::setw(10) << std::setfill('0')
+                      << this->phy_addr << std::endl;
+        }
+        else
+        {
+            std::cout << "\t" << std::dec << std::setw(3) << std::setfill(' ')
+                      << ((addr >> 56) & 0x1FF) << "-->PD3@0x" << std::hex
+                      << std::setw(10) << std::setfill('0') << this->phy_addr << std::endl;
         }
 
-        std::cout << std::endl;
+        for (auto it = this->pde_entry.begin(); it != this->pde_entry.end(); it++)
+            PDE2s[it->first]->print(addr | ((uint64_t)it->first << 47));
     }
 
     bool construct()

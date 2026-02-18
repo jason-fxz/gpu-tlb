@@ -46,7 +46,7 @@ int main(int argc, char *argv[])
 
     struct stat st;
     fstat(fd, &st);
-    std::cout << "size: " << std::hex << st.st_size << std::endl;
+    std::cout << "size: 0x" << std::hex << st.st_size << std::endl;
     void *basePtr = mmap(NULL, st.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
     if (basePtr == MAP_FAILED)
     {
@@ -71,7 +71,9 @@ int main(int argc, char *argv[])
         {
             topPtr->print(0);
             struct vm_area_struct_head *head = visualize_virtual_address_space(topPtr);
+            std::cout << "\n";
             print_area(head);
+            std::cout << "\n\n\n";
         }
     }
     else
@@ -109,7 +111,9 @@ int main(int argc, char *argv[])
             {
                 topPtr->print(0);
                 struct vm_area_struct_head *head = visualize_virtual_address_space(topPtr);
+                std::cout << "\n";
                 print_area(head);
+                std::cout << "\n\n\n";
             }
         }
     }

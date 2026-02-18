@@ -56,46 +56,29 @@ public:
 
     void print(uint64_t addr)
     {
-        for (int i = 0; i < this->type; i++)
-            std::cout << "\t";
-
-        std::cout << "PDE1: 0x" << std::hex << this->phy_addr << "  type:" << this->type
-                  << "  entry:" << this->self_entry.entry_bits << std::endl;
+        std::cout << "\t\t" << std::dec << std::setw(3) << std::setfill(' ')
+                  << ((addr >> 38) & 0x1FF) << "-->PD1@0x" << std::hex << std::setw(10)
+                  << std::setfill('0') << this->phy_addr << std::endl;
 
         for (auto it = this->pde_entry.begin(); it != this->pde_entry.end(); it++)
-        {
-            for (int i = 0; i < this->type; i++)
-                std::cout << "\t";
-
-            std::cout << "\t" << std::dec << it->first << " "
-                      << "A: " << (uint64_t)it->second->A
-                      << " V: " << (uint64_t)it->second->V << " "
-                      << "flags: 0b" << std::bitset<8>(it->second->flags) << " "
-                      << "next_phy_addr: 0x" << std::hex << it->second->addr
-                      << std::endl;
-
             PDE0s[it->first]->print(addr | ((uint64_t)it->first << 29));
-        }
 
         for (auto it = this->pte_entry.begin(); it != this->pte_entry.end(); it++)
         {
-            for (int i = 0; i < this->type; i++)
-                std::cout << "\t";
+            uint64_t virt_addr = addr | ((uint64_t)it->first << 29);
+            uint8_t flags = it->second->flags;
+            std::cout << "\t\t\t" << std::dec << std::setw(3) << std::setfill(' ')
+                      << it->first << "-->512MB-Page@0x" << std::hex << std::setw(10)
+                      << std::setfill('0') << it->second->addr << "\tVA: 0x" << std::setw(10)
+                      << virt_addr << "\t|V:" << (flags & 0x1)
+                      << "|AP:" << mmu_aperture_name((flags >> 1) & 0x3)
+                      << "|VOL:" << ((flags >> 3) & 0x1) << "|E:" << ((flags >> 4) & 0x1)
+                      << "|P:" << ((flags >> 5) & 0x1) << "|RO:" << ((flags >> 6) & 0x1)
+                      << "|AD:" << ((flags >> 7) & 0x1) << "|" << std::endl;
 
-            std::cout << "\t PDE1 is PTE:" << std::dec << it->first << " "
-                      << "A: " << (uint64_t)it->second->A
-                      << " V: " << (uint64_t)it->second->V << " "
-                      << "flags: 0b" << std::bitset<8>(it->second->flags) << " "
-                      << "Page_addr: 0x" << std::hex << it->second->addr << " "
-                      << "Page_size: PAGE_512M"
-                      << " virt_addr: 0x" << std::hex << (addr | ((uint64_t)it->first << 29))
-                      << " " << std::endl;
-
-            it->second->virt_addr = (addr | ((uint64_t)it->first << 29));
+            it->second->virt_addr = virt_addr;
             it->second->small = PAGE_512M;
         }
-
-        std::cout << std::endl;
     }
 
     bool construct()

@@ -52,28 +52,11 @@ public:
 
     void print(uint64_t addr)
     {
-        for (int i = 0; i < this->type; i++)
-            std::cout << "\t";
-
-        std::cout << "PDE4: 0x" << std::hex << this->phy_addr << "  type:" << this->type
-                  << "  entry:" << this->self_entry.entry_bits << std::endl;
+        std::cout << "PD4@0x" << std::hex << std::setw(10) << std::setfill('0')
+                  << this->phy_addr << std::endl;
 
         for (auto it = this->pde_entry.begin(); it != this->pde_entry.end(); it++)
-        {
-            for (int i = 0; i < this->type; i++)
-                std::cout << "\t";
-
-            std::cout << "\t" << std::dec << it->first << " "
-                      << "A: " << (uint64_t)it->second->A
-                      << " V: " << (uint64_t)it->second->V << " "
-                      << "flags: 0b" << std::bitset<8>(it->second->flags) << " "
-                      << "next_phy_addr: 0x" << std::hex << it->second->addr
-                      << std::endl;
-
             PDE3s[it->first]->print(addr | ((uint64_t)it->first << 56));
-        }
-
-        std::cout << std::endl;
     }
 
     bool construct()
