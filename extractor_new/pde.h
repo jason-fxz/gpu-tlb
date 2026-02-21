@@ -12,6 +12,22 @@
 
 enum PDEType { PD4, PD3, PD2, PD1, PD0, PTE0, PAGE512M, PAGE2M, PAGE64K, PAGE4K};
 
+static inline uint64_t &mmu_dump_start_ref()
+{
+  static uint64_t dump_start = 0;
+  return dump_start;
+}
+
+static inline void mmu_set_dump_start(uint64_t dump_start)
+{
+  mmu_dump_start_ref() = dump_start;
+}
+
+static inline uint64_t mmu_get_dump_start()
+{
+  return mmu_dump_start_ref();
+}
+
 static inline const char *mmu_aperture_name(std::uint8_t aperture)
 {
   switch (aperture & 0x3)

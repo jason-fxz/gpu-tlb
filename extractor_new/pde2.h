@@ -50,8 +50,9 @@ public:
 
     void print(uint64_t addr)
     {
+        const char *indent = this->format == MmuFormat::VER3 ? "\t\t" : "\t";
         uint64_t pd3_index_mask = this->format == MmuFormat::VER2 ? 0x3 : 0x1FF;
-        std::cout << "\t" << std::dec << std::setw(3) << std::setfill(' ')
+        std::cout << indent << std::dec << std::setw(3) << std::setfill(' ')
                   << ((addr >> 47) & pd3_index_mask) << "-->PD2@0x" << std::hex
                   << std::setw(10) << std::setfill('0') << this->phy_addr << std::endl;
 
@@ -79,6 +80,9 @@ public:
         auto in_dump_range = [&](uint64_t addr, uint64_t size) {
             if (this->dump_size == 0)
                 return true;
+
+            if (addr < mmu_get_dump_start())
+                return false;
 
             if (addr > this->dump_size)
                 return false;
@@ -126,6 +130,9 @@ public:
         auto in_dump_range = [&](uint64_t addr, uint64_t size) {
             if (this->dump_size == 0)
                 return true;
+
+            if (addr < mmu_get_dump_start())
+                return false;
 
             if (addr > this->dump_size)
                 return false;

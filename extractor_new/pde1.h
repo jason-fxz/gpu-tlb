@@ -56,7 +56,10 @@ public:
 
     void print(uint64_t addr)
     {
-        std::cout << "\t\t" << std::dec << std::setw(3) << std::setfill(' ')
+        const char *indent_pd1 = this->format == MmuFormat::VER3 ? "\t\t\t" : "\t\t";
+        const char *indent_pte = this->format == MmuFormat::VER3 ? "\t\t\t\t" : "\t\t\t";
+
+        std::cout << indent_pd1 << std::dec << std::setw(3) << std::setfill(' ')
                   << ((addr >> 38) & 0x1FF) << "-->PD1@0x" << std::hex << std::setw(10)
                   << std::setfill('0') << this->phy_addr << std::endl;
 
@@ -67,7 +70,7 @@ public:
         {
             uint64_t virt_addr = addr | ((uint64_t)it->first << 29);
             uint8_t flags = it->second->flags;
-            std::cout << "\t\t\t" << std::dec << std::setw(3) << std::setfill(' ')
+            std::cout << indent_pte << std::dec << std::setw(3) << std::setfill(' ')
                       << it->first << "-->512MB-Page@0x" << std::hex << std::setw(10)
                       << std::setfill('0') << it->second->addr << "\tVA: 0x" << std::setw(10)
                       << virt_addr << "\t|V:" << (flags & 0x1)
@@ -106,6 +109,9 @@ public:
             if (this->dump_size == 0)
                 return true;
 
+            if (addr < mmu_get_dump_start())
+                return false;
+
             if (addr > this->dump_size)
                 return false;
 
@@ -140,6 +146,9 @@ public:
                     return false;
 
                 std::uint64_t pte_addr = mmu_decode_pte_address(entry_bits, this->format);
+                if (this->format == MmuFormat::VER3 && (pte_addr & ((1ULL << 29) - 1)) != 0)
+                    return false;
+
                 ENTRY *entry_pte = new ENTRY(pte_addr, flags, V, A, i, entry_bits);
                 this->pte_entry[i] = entry_pte;
             }
@@ -159,6 +168,9 @@ public:
         auto in_dump_range = [&](uint64_t addr, uint64_t size) {
             if (this->dump_size == 0)
                 return true;
+
+            if (addr < mmu_get_dump_start())
+                return false;
 
             if (addr > this->dump_size)
                 return false;

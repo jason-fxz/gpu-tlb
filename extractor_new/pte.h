@@ -52,6 +52,8 @@ public:
 
     void print(uint64_t addr)
     {
+        const char *indent_pt = this->format == MmuFormat::VER3 ? "\t\t\t\t\t" : "\t\t\t\t";
+        const char *indent_page = this->format == MmuFormat::VER3 ? "\t\t\t\t\t\t" : "\t\t\t\t\t";
         std::string page_name;
         int shift = 12;
         uint64_t mask = 0x1FF;
@@ -72,16 +74,17 @@ public:
             page_name = "4KB-Page";
         }
 
-        std::cout << "\t\t\t\t" << std::dec << std::setw(3) << std::setfill(' ')
+        std::cout << indent_pt << std::dec << std::setw(3) << std::setfill(' ')
                   << ((addr >> 21) & 0x0FF) << "-->PT@0x" << std::hex << std::setw(10)
-                  << std::setfill('0') << this->phy_addr << std::endl;
+                  << std::setfill('0') << this->phy_addr << (this->type == PAGE64K ? " [big]" : " [small]") << std::endl;
 
         for (auto it = this->pte_entry.begin(); it != this->pte_entry.end(); it++)
         {
             uint64_t addr_tmp = addr | ((uint64_t)it->first << shift);
             uint8_t flags = it->second->flags;
-            std::cout << "\t\t\t\t\t" << std::dec << std::setw(3) << std::setfill(' ')
-                      << (it->first & mask) << "-->" << page_name << "@0x" << std::hex
+            const char *page_sep = (this->type == PAGE4K) ? "--> " : "-->";
+            std::cout << indent_page << std::dec << std::setw(3) << std::setfill(' ')
+                      << (it->first & mask) << page_sep << page_name << "@0x" << std::hex
                       << std::setw(10) << std::setfill('0') << it->second->addr
                       << "\tVA: 0x" << std::setw(10) << addr_tmp
                       << "\t|V:" << (flags & 0x1)
@@ -109,6 +112,9 @@ public:
         auto in_dump_range = [&](uint64_t addr, uint64_t size) {
             if (this->dump_size == 0)
                 return true;
+
+            if (addr < mmu_get_dump_start())
+                return false;
 
             if (addr > this->dump_size)
                 return false;

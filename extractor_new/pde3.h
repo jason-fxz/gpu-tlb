@@ -89,6 +89,9 @@ public:
             if (this->dump_size == 0)
                 return true;
 
+            if (addr < mmu_get_dump_start())
+                return false;
+
             if (addr > this->dump_size)
                 return false;
 
@@ -145,6 +148,9 @@ public:
         auto in_dump_range = [&](uint64_t addr, uint64_t size) {
             if (this->dump_size == 0)
                 return true;
+
+            if (addr < mmu_get_dump_start())
+                return false;
 
             if (addr > this->dump_size)
                 return false;

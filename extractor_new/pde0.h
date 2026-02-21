@@ -65,7 +65,10 @@ public:
 
     void print(uint64_t addr)
     {
-        std::cout << "\t\t\t" << std::dec << std::setw(3) << std::setfill(' ')
+        const char *indent_pd0 = this->format == MmuFormat::VER3 ? "\t\t\t\t" : "\t\t\t";
+        const char *indent_2m = this->format == MmuFormat::VER3 ? "\t\t\t\t\t" : "\t\t\t\t";
+
+        std::cout << indent_pd0 << std::dec << std::setw(3) << std::setfill(' ')
                   << ((addr >> 29) & 0x1FF) << "-->PD0@0x" << std::hex << std::setw(10)
                   << std::setfill('0') << this->phy_addr << std::endl;
 
@@ -84,8 +87,8 @@ public:
             {
                 uint64_t virt_addr = addr | ((uint64_t)idx << 21);
                 uint8_t flags = it_pte->second->flags;
-                std::cout << "\t\t\t\t\t" << std::dec << std::setw(3) << std::setfill(' ')
-                          << idx << "-->2MB-Page@0x" << std::hex << std::setw(10)
+                std::cout << indent_2m << std::dec << std::setw(3) << std::setfill(' ')
+                          << idx << "------> 2MB-Page@0x" << std::hex << std::setw(10)
                           << std::setfill('0') << it_pte->second->addr << "\tVA: 0x"
                           << std::setw(10) << virt_addr << "\t|V:" << (flags & 0x1)
                           << "|AP:" << mmu_aperture_name((flags >> 1) & 0x3)
@@ -125,6 +128,9 @@ public:
         auto in_dump_range = [&](uint64_t addr, uint64_t size) {
             if (this->dump_size == 0)
                 return true;
+
+            if (addr < mmu_get_dump_start())
+                return false;
 
             if (addr > this->dump_size)
                 return false;
@@ -177,6 +183,9 @@ public:
                 if (A_big > 0x03)
                     return false;
 
+                if (this->format == MmuFormat::VER3 && (addr_pte & ((1ULL << 21) - 1)) != 0)
+                    return false;
+
                 ENTRY *entry_pte = new ENTRY(addr_pte, flags_big, V, A_big, i, entry_bits_big, PAGE_2M);
                 this->pte_entry[i] = entry_pte;
             }
@@ -196,6 +205,9 @@ public:
         auto in_dump_range = [&](uint64_t addr, uint64_t size) {
             if (this->dump_size == 0)
                 return true;
+
+            if (addr < mmu_get_dump_start())
+                return false;
 
             if (addr > this->dump_size)
                 return false;

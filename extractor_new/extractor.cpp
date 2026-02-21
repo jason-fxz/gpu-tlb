@@ -1,5 +1,7 @@
 #include <cstdint>
 #include <cstdlib>
+#include <cerrno>
+#include <cstring>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -15,25 +17,35 @@
 
 int main(int argc, char *argv[])
 {
-    if (argc != 2 && argc != 3)
+    if (argc < 2 || argc > 4)
     {
-        std::cout << argv[0] << " <dump> [ver2|ver3]\n";
+        std::cout << argv[0] << " <dump> [dump_base_hex] [ver2|ver3]\n";
         return -1;
     }
 
     MmuFormat format = MmuFormat::VER2;
-    if (argc == 3)
+    uint64_t dump_base = 0;
+
+    for (int i = 2; i < argc; ++i)
     {
-        std::string mmu_format = argv[2];
+        std::string arg = argv[i];
+        std::string mmu_format = arg;
         if (mmu_format == "ver2")
             format = MmuFormat::VER2;
         else if (mmu_format == "ver3" || mmu_format == "hopper")
             format = MmuFormat::VER3;
         else
         {
-            std::cout << "unsupported format: " << argv[2] << std::endl;
-            std::cout << "supported values: ver2, ver3(hopper)\n";
-            return -1;
+            char *endptr = nullptr;
+            errno = 0;
+            unsigned long long parsed = std::strtoull(arg.c_str(), &endptr, 0);
+            if (errno != 0 || endptr == arg.c_str() || *endptr != '\0')
+            {
+                std::cout << "unsupported argument: " << arg << std::endl;
+                std::cout << "supported values: dump_base_hex and/or ver2, ver3(hopper)\n";
+                return -1;
+            }
+            dump_base = static_cast<uint64_t>(parsed);
         }
     }
 
@@ -47,8 +59,13 @@ int main(int argc, char *argv[])
     struct stat st;
     fstat(fd, &st);
     std::cout << "size: 0x" << std::hex << st.st_size << std::endl;
-    void *basePtr = mmap(NULL, st.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
-    if (basePtr == MAP_FAILED)
+    uint64_t dump_end = dump_base + (uint64_t)st.st_size;
+    std::cout << "dump base: 0x" << std::hex << dump_base << ", dump end: 0x" << dump_end << std::endl;
+    mmu_set_dump_start(dump_base);
+
+    void *mappedPtr = mmap(NULL, st.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
+    void *basePtr = (uint8_t *)mappedPtr - dump_base;
+    if (mappedPtr == MAP_FAILED)
     {
         std::cout << "cannot mmap " << argv[1] << std::endl;
         return -1;
@@ -57,9 +74,9 @@ int main(int argc, char *argv[])
     if (format == MmuFormat::VER3)
     {
         std::vector<PDE4 *> PDE4s;
-        for (std::uint64_t offset = 0; offset + 4096 <= (uint64_t)st.st_size; offset += 4096)
+        for (std::uint64_t offset = dump_base; offset + 4096 <= dump_end; offset += 4096)
         {
-            PDE4 *topPtr = new PDE4(offset, basePtr, PD4, ENTRY(), format, (uint64_t)st.st_size, 2);
+            PDE4 *topPtr = new PDE4(offset, basePtr, PD4, ENTRY(), format, dump_end, 2);
             bool ok = topPtr->construct();
             if (!ok)
                 delete topPtr;
@@ -73,16 +90,17 @@ int main(int argc, char *argv[])
             struct vm_area_struct_head *head = visualize_virtual_address_space(topPtr);
             std::cout << "\n";
             print_area(head);
+            print_physical_range(head);
             std::cout << "\n\n\n";
         }
     }
     else
     {
         std::vector<PDE3 *> PDE3s;
-        for (std::uint64_t offset = 0; offset + 4096 <= (uint64_t)st.st_size;
+        for (std::uint64_t offset = dump_base; offset + 4096 <= dump_end;
              offset += 4096)
         {
-            PDE3 *topPtr = new PDE3(offset, basePtr, PD3, ENTRY(), format, (uint64_t)st.st_size, 4);
+            PDE3 *topPtr = new PDE3(offset, basePtr, PD3, ENTRY(), format, dump_end, 4);
 
             bool ok = topPtr->construct();
             if (!ok)
@@ -113,6 +131,7 @@ int main(int argc, char *argv[])
                 struct vm_area_struct_head *head = visualize_virtual_address_space(topPtr);
                 std::cout << "\n";
                 print_area(head);
+                print_physical_range(head);
                 std::cout << "\n\n\n";
             }
         }
