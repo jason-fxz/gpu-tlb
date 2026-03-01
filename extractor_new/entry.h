@@ -1,6 +1,7 @@
 #ifndef _ENTRY_H_
 #define _ENTRY_H_
 #include <cstdint>
+#include "mmu_decode.h"
 
 enum pagetype
 {
@@ -13,7 +14,7 @@ class ENTRY
 {
 public:
     uint64_t addr;
-    uint8_t flags;
+    MmuFlags flags;
     uint8_t V;
     uint8_t A;
     uint64_t index;
@@ -22,8 +23,8 @@ public:
     uint64_t virt_addr = 0;
 
     ENTRY();
-    ENTRY(uint64_t, uint8_t, uint8_t, uint8_t, uint64_t, uint64_t);
-    ENTRY(uint64_t, uint8_t, uint8_t, uint8_t, uint64_t, uint64_t, pagetype);
+    ENTRY(uint64_t, MmuFlags, uint8_t, uint8_t, uint64_t, uint64_t);
+    ENTRY(uint64_t, MmuFlags, uint8_t, uint8_t, uint64_t, uint64_t, pagetype);
     ~ENTRY();
 };
 

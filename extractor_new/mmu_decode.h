@@ -2,15 +2,30 @@
 #define _MMU_DECODE_H_
 
 #include <cstdint>
+#include <ostream>
+#include <stdexcept>
 
 enum class MmuFormat
 {
     VER2 = 2,
-    VER3 = 3,
+    VER3 = 3, // hopper and later
 };
 
-static inline std::uint64_t mmu_read_u64_le(const std::uint8_t *ptr)
-{
+struct MmuFlags {
+    std::uint8_t value;
+    MmuFormat format;
+};
+
+
+static inline std::uint64_t make_mask(int high, int low) {
+    return ((1ULL << (high - low + 1)) - 1) << low;
+}
+
+static inline std::uint64_t get_bits(std::uint64_t raw, int high, int low) {
+    return (raw & make_mask(high, low)) >> low;
+}
+
+static inline std::uint64_t mmu_read_u64_le(const std::uint8_t *ptr) {
     std::uint64_t value = 0;
 
     for (int i = 0; i < 8; ++i)
@@ -19,46 +34,84 @@ static inline std::uint64_t mmu_read_u64_le(const std::uint8_t *ptr)
     return value;
 }
 
-static inline std::uint8_t mmu_entry_valid(std::uint64_t raw)
-{
-    return raw & 0x1;
+static inline std::uint8_t mmu_entry_valid(std::uint64_t raw) {
+    return get_bits(raw, 0, 0); // [0:0] -> V
 }
 
-static inline std::uint8_t mmu_entry_aperture(std::uint64_t raw)
-{
-    return (raw >> 1) & 0x3;
+static inline std::uint8_t mmu_entry_aperture(std::uint64_t raw) {
+    return get_bits(raw, 2, 1); // [2:1] -> A
 }
 
-static inline std::uint64_t mmu_decode_single_pde_address(std::uint64_t raw, MmuFormat format)
-{
-    if (format == MmuFormat::VER3)
-        return raw & 0x000ffffffffff000ULL; // [51:12] -> PA[51:12]
-
-    return ((raw >> 8) & 0x3fffffffffffULL) << 12; // [53:8] -> PA[53:12]
+static inline MmuFlags mmu_entry_flags(std::uint64_t raw, MmuFormat format) {
+    return MmuFlags{ static_cast<std::uint8_t>(get_bits(raw, 7, 3)), format }; // [7:3] -> PTE Flags
 }
 
-static inline std::uint64_t mmu_decode_dual_big_address(std::uint64_t raw, MmuFormat format)
-{
-    if (format == MmuFormat::VER3)
-        return ((raw >> 8) & 0xfffffffffffULL) << 8; // [51:8] -> PA[51:8]
-
-    return ((raw >> 4) & 0x3ffffffffffffULL) << 8; // [53:4] -> PA[53:8]
+static inline std::ostream& operator<<(std::ostream& os, const MmuFlags& f) {
+    switch (f.format) {
+        case MmuFormat::VER3:
+            os << "|VOL:" << ((f.value >> 0) & 0x1) << "|P:" << ((f.value >> 1) & 0x1)
+               << "|RO:" << ((f.value >> 2) & 0x1) << "|AD:" << ((f.value >> 3) & 0x1)
+               << "|ACD:" << ((f.value >> 4) & 0x1) << "|";
+            break;
+        case MmuFormat::VER2:
+            os << "|VOL:" << ((f.value >> 0) & 0x1) << "|E:" << ((f.value >> 1) & 0x1)
+               << "|P:" << ((f.value >> 2) & 0x1) << "|RO:" << ((f.value >> 3) & 0x1)
+               << "|AD:" << ((f.value >> 4) & 0x1) << "|";
+            break;
+        default:
+            throw std::runtime_error("Invalid MMU format");
+    }
+    return os;
 }
 
-static inline std::uint64_t mmu_decode_dual_small_address(std::uint64_t raw, MmuFormat format)
-{
-    if (format == MmuFormat::VER3)
-        return raw & 0x000ffffffffff000ULL; // [51:12] in upper qword
 
-    return ((raw >> 8) & 0x3fffffffffffULL) << 12; // [53:8] in upper qword
+
+// For PDE1 and above
+static inline std::uint64_t mmu_decode_single_pde_address(std::uint64_t raw, MmuFormat format) {
+    switch (format) {
+        case MmuFormat::VER3:
+            return get_bits(raw, 51, 12) << 12; // [51:12] -> PA[51:12]
+        case MmuFormat::VER2:
+            return get_bits(raw, 53, 8) << 12; // [53:8] -> PA[57:12]
+        default:
+            throw std::runtime_error("Invalid MMU format");
+    }
 }
 
-static inline std::uint64_t mmu_decode_pte_address(std::uint64_t raw, MmuFormat format)
-{
-    if (format == MmuFormat::VER3)
-        return raw & 0x000ffffffffff000ULL; // [51:12]
+// For PDE0 Dual Big
+static inline std::uint64_t mmu_decode_dual_big_address(std::uint64_t raw, MmuFormat format) {
+    switch (format) {
+        case MmuFormat::VER3:
+            return get_bits(raw, 51, 8) << 8; // [51:8] -> PA[51:8]
+        case MmuFormat::VER2:
+            return get_bits(raw, 53, 4) << 8; // [53:4] -> PA[57:8]
+        default:
+            throw std::runtime_error("Invalid MMU format");
+    }
+}
 
-    return ((raw >> 8) & 0x3fffffffffffULL) << 12; // [53:8]
+// For PDE0 Dual Small
+static inline std::uint64_t mmu_decode_dual_small_address(std::uint64_t raw, MmuFormat format) {
+   switch (format) {
+        case MmuFormat::VER3:
+            return get_bits(raw, 51, 12) << 12; // [51:12] -> PA[51:12]
+        case MmuFormat::VER2:
+            return get_bits(raw, 53, 8) << 12; // [53:8] -> PA[57:12]
+        default:
+            throw std::runtime_error("Invalid MMU format");
+    }
+}
+
+// For PTE
+static inline std::uint64_t mmu_decode_pte_address(std::uint64_t raw, MmuFormat format) {
+    switch (format) {
+        case MmuFormat::VER3:
+            return get_bits(raw, 51, 12) << 12; // [51:12] -> PA[51:12]
+        case MmuFormat::VER2:
+            return get_bits(raw, 53, 8) << 12; // [53:8] -> PA[57:12]
+        default:
+            throw std::runtime_error("Invalid MMU format");
+    }
 }
 
 #endif

@@ -118,7 +118,7 @@ public:
             std::uint64_t entry_bits = mmu_read_u64_le(entry_Ptr);
             std::uint8_t V = mmu_entry_valid(entry_bits);
             std::uint8_t A = mmu_entry_aperture(entry_bits);
-            std::uint8_t flags = entry_Ptr[0] & 0xff;
+            MmuFlags flags = mmu_entry_flags(entry_bits, this->format);
             std::uint64_t addr = mmu_decode_single_pde_address(entry_bits, this->format);
 
             if (V == 0x00 && A == 0x00 && addr == 0x0)

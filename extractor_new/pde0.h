@@ -86,17 +86,12 @@ public:
             if (it_pte != this->pte_entry.end())
             {
                 uint64_t virt_addr = addr | ((uint64_t)idx << 21);
-                uint8_t flags = it_pte->second->flags;
                 std::cout << indent_2m << std::dec << std::setw(3) << std::setfill(' ')
                           << idx << "------> 2MB-Page@0x" << std::hex << std::setw(10)
                           << std::setfill('0') << it_pte->second->addr << "\tVA: 0x"
-                          << std::setw(10) << virt_addr << "\t|V:" << (flags & 0x1)
-                          << "|AP:" << mmu_aperture_name((flags >> 1) & 0x3)
-                          << "|VOL:" << ((flags >> 3) & 0x1)
-                          << "|E:" << ((flags >> 4) & 0x1)
-                          << "|P:" << ((flags >> 5) & 0x1)
-                          << "|RO:" << ((flags >> 6) & 0x1)
-                          << "|AD:" << ((flags >> 7) & 0x1) << "|" << std::endl;
+                          << std::setw(10) << virt_addr << "\t|V:" << (int)it_pte->second->V
+                          << "|AP:" << mmu_aperture_name(it_pte->second->A)
+                          << it_pte->second->flags << std::endl;
 
                 it_pte->second->virt_addr = virt_addr;
                 it_pte->second->small = PAGE_2M;
@@ -152,8 +147,8 @@ public:
             std::uint8_t V = mmu_entry_valid(entry_bits_big);
             std::uint8_t A_big = mmu_entry_aperture(entry_bits_big);
             std::uint8_t A_small = mmu_entry_aperture(entry_bits_small);
-            std::uint8_t flags_big = entry_Ptr_big[0] & 0xff;
-            std::uint8_t flags_small = entry_Ptr_small[0] & 0xff;
+            MmuFlags flags_big = mmu_entry_flags(entry_bits_big, this->format);
+            MmuFlags flags_small = mmu_entry_flags(entry_bits_small, this->format);
 
             std::uint64_t addr_big = mmu_decode_dual_big_address(entry_bits_big, this->format);
             std::uint64_t addr_small = mmu_decode_dual_small_address(entry_bits_small, this->format);

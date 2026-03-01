@@ -81,17 +81,14 @@ public:
         for (auto it = this->pte_entry.begin(); it != this->pte_entry.end(); it++)
         {
             uint64_t addr_tmp = addr | ((uint64_t)it->first << shift);
-            uint8_t flags = it->second->flags;
             const char *page_sep = (this->type == PAGE4K) ? "--> " : "-->";
             std::cout << indent_page << std::dec << std::setw(3) << std::setfill(' ')
                       << (it->first & mask) << page_sep << page_name << "@0x" << std::hex
                       << std::setw(10) << std::setfill('0') << it->second->addr
                       << "\tVA: 0x" << std::setw(10) << addr_tmp
-                      << "\t|V:" << (flags & 0x1)
-                      << "|AP:" << mmu_aperture_name((flags >> 1) & 0x3)
-                      << "|VOL:" << ((flags >> 3) & 0x1) << "|E:" << ((flags >> 4) & 0x1)
-                      << "|P:" << ((flags >> 5) & 0x1) << "|RO:" << ((flags >> 6) & 0x1)
-                      << "|AD:" << ((flags >> 7) & 0x1) << "|" << std::endl;
+                      << "\t|V:" << (int)it->second->V
+                      << "|AP:" << mmu_aperture_name(it->second->A)
+                      << it->second->flags << std::endl;
 
             it->second->virt_addr = addr_tmp;
         }
@@ -133,7 +130,7 @@ public:
             std::uint64_t entry_bits = mmu_read_u64_le(entry_Ptr);
             std::uint8_t V = mmu_entry_valid(entry_bits);
             std::uint8_t A = mmu_entry_aperture(entry_bits);
-            std::uint8_t flags = entry_Ptr[0] & 0xff;
+            MmuFlags flags = mmu_entry_flags(entry_bits, this->format);
             std::uint64_t addr = mmu_decode_pte_address(entry_bits, this->format);
             pagetype entry_type;
             if (this->type == PAGE512M)
