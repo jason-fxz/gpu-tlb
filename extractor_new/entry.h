@@ -21,10 +21,11 @@ public:
     uint64_t entry_bits = 0;
     pagetype small = PAGE_4K;
     uint64_t virt_addr = 0;
+    std::uint8_t peer = 0;  // PTE only: peer ID when aperture is VP
 
     ENTRY();
     ENTRY(uint64_t, MmuFlags, uint8_t, uint8_t, uint64_t, uint64_t);
-    ENTRY(uint64_t, MmuFlags, uint8_t, uint8_t, uint64_t, uint64_t, pagetype);
+    ENTRY(uint64_t, MmuFlags, uint8_t, uint8_t, uint64_t, uint64_t, pagetype, std::uint8_t peer = 0);
     ~ENTRY();
 };
 

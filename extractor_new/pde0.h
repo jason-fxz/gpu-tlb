@@ -91,7 +91,10 @@ public:
                           << std::setfill('0') << it_pte->second->addr << "\tVA: 0x"
                           << std::setw(10) << virt_addr << "\t|V:" << (int)it_pte->second->V
                           << "|AP:" << mmu_aperture_name(it_pte->second->A)
-                          << it_pte->second->flags << std::endl;
+                          << it_pte->second->flags;
+                if ((it_pte->second->A & 0x3) == 1)  // VP
+                    std::cout << "|PEER:" << (int)it_pte->second->peer;
+                std::cout << std::endl;
 
                 it_pte->second->virt_addr = virt_addr;
                 it_pte->second->small = PAGE_2M;
@@ -181,7 +184,8 @@ public:
                 if (this->format == MmuFormat::VER3 && (addr_pte & ((1ULL << 21) - 1)) != 0)
                     return false;
 
-                ENTRY *entry_pte = new ENTRY(addr_pte, flags_big, V, A_big, i, entry_bits_big, PAGE_2M);
+                std::uint8_t peer_pte = mmu_entry_peer(entry_bits_big, this->format);
+                ENTRY *entry_pte = new ENTRY(addr_pte, flags_big, V, A_big, i, entry_bits_big, PAGE_2M, peer_pte);
                 this->pte_entry[i] = entry_pte;
             }
             else {

@@ -88,7 +88,10 @@ public:
                       << "\tVA: 0x" << std::setw(10) << addr_tmp
                       << "\t|V:" << (int)it->second->V
                       << "|AP:" << mmu_aperture_name(it->second->A)
-                      << it->second->flags << std::endl;
+                      << it->second->flags;
+            if ((it->second->A & 0x3) == 1)  // VP
+                std::cout << "|PEER:" << (int)it->second->peer;
+            std::cout << std::endl;
 
             it->second->virt_addr = addr_tmp;
         }
@@ -131,6 +134,7 @@ public:
             std::uint8_t V = mmu_entry_valid(entry_bits);
             std::uint8_t A = mmu_entry_aperture(entry_bits);
             MmuFlags flags = mmu_entry_flags(entry_bits, this->format);
+            std::uint8_t peer = mmu_entry_peer(entry_bits, this->format);
             std::uint64_t addr = mmu_decode_pte_address(entry_bits, this->format);
             pagetype entry_type;
             if (this->type == PAGE512M)
@@ -145,7 +149,7 @@ public:
             if (addr == 0x0 && V == 0x0)
                 continue;
 
-            ENTRY *entry = new ENTRY(addr, flags, V, A, i, entry_bits, entry_type);
+            ENTRY *entry = new ENTRY(addr, flags, V, A, i, entry_bits, entry_type, peer);
             if (V == 0x01 && A <= 0x03)
                 this->pte_entry[i] = entry;
             else

@@ -46,6 +46,20 @@ static inline MmuFlags mmu_entry_flags(std::uint64_t raw, MmuFormat format) {
     return MmuFlags{ static_cast<std::uint8_t>(get_bits(raw, 7, 3)), format }; // [7:3] -> PTE Flags
 }
 
+
+// PTE entry flags
+static inline std::uint8_t mmu_entry_peer(std::uint64_t raw, MmuFormat format) {
+    switch (format) {
+        case MmuFormat::VER3:
+            return get_bits(raw, 63, 61); // [63:61] -> Peer ID
+        case MmuFormat::VER2:
+            return get_bits(raw, 35, 33); // [35:33] -> Peer ID
+        default:
+            throw std::runtime_error("Invalid MMU format");
+    }
+}
+
+
 static inline std::ostream& operator<<(std::ostream& os, const MmuFlags& f) {
     switch (f.format) {
         case MmuFormat::VER3:
